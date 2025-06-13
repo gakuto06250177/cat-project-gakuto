@@ -35,55 +35,59 @@ if __name__ == '__main__':
 
     pbar = trange(500)
     for i in pbar:
+      try:
+        ######################## First Round : log the normal scenario ########################
+        env.reset(force_seed=i)
+        
+        
+        done = False
+        ep_timestep = 0
+        adv_generator.before_episode(env)   # initialization before each episode
 
-      ######################## First Round : log the normal scenario ########################
-      env.reset(force_seed=i)
-      
-      
-      done = False
-      ep_timestep = 0
-      adv_generator.before_episode(env)   # initialization before each episode
-
-      env.render(**extra_args)
-      env.engine._top_down_renderer.set_adv(adv_generator.adv_agent)
+        env.render(**extra_args)
+        env.engine._top_down_renderer.set_adv(adv_generator.adv_agent)
 
 
-      while True:
-        adv_generator.log_AV_history()    # log the ego car's states at every step
-        o, r, done, info = env.step([1.0, 0.]) # replace it with your own controller
-        env.render(**extra_args,text={'Replay': 'Raw Scenario'})
-        ep_timestep += 1
-        if done:
-          adv_generator.after_episode()   # post-processing after each episode
-          break
-      
-      
-      ################ Second Round : create the adversarial counterpart #####################
-      
-      env.reset(force_seed=i)
-      env.vehicle.ego_crash_flag = False
-      done = False
-      ep_timestep = 0
+        while True:
+          adv_generator.log_AV_history()    # log the ego car's states at every step
+          o, r, done, info = env.step([1.0, 0.]) # replace it with your own controller
+          env.render(**extra_args,text={'Replay': 'Raw Scenario'})
+          ep_timestep += 1
+          if done:
+            adv_generator.after_episode()   # post-processing after each episode
+            break
+        
+        
+        ################ Second Round : create the adversarial counterpart #####################
+        
+        env.reset(force_seed=i)
+        env.vehicle.ego_crash_flag = False
+        done = False
+        ep_timestep = 0
 
-      t0 = time.time()
+        t0 = time.time()
 
-      adv_generator.before_episode(env)   # initialization before each episode
-      adv_generator.generate()            # Adversarial scenario generation with the logged history corresponding to the current env 
-      env.engine.traffic_manager.set_adv_info(adv_generator.adv_agent,adv_generator.adv_traj) # set the adversarial traffic
-      
-      t1 = time.time()
-      time_cost += t1 - t0
-      
-      while True:
-        o, r, done, info = env.step([1.0, 0.]) # replace it with your own controller
-        env.render(**extra_args,text={'Generate': 'Safety-Critical Scenario'})
-        ep_timestep += 1
-        crash = env.vehicle.ego_crash_flag
-        if done or crash:
-          if crash:
-            attack_cnt += 1
-          adv_generator.after_episode()    # post-processing after each episode
-          pbar.set_postfix(avg_attack_success_rate=attack_cnt/(i+1),avg_compute_time=time_cost/(i+1)) # benchmarking the attack success rate and computational time
-          break
+        adv_generator.before_episode(env)   # initialization before each episode
+        adv_generator.generate()            # Adversarial scenario generation with the logged history corresponding to the current env 
+        env.engine.traffic_manager.set_adv_info(adv_generator.adv_agent,adv_generator.adv_traj) # set the adversarial traffic
+        
+        t1 = time.time()
+        time_cost += t1 - t0
+        
+        while True:
+          o, r, done, info = env.step([1.0, 0.]) # replace it with your own controller
+          env.render(**extra_args,text={'Generate': 'Safety-Critical Scenario'})
+          ep_timestep += 1
+          crash = env.vehicle.ego_crash_flag
+          if done or crash:
+            if crash:
+              attack_cnt += 1
+            adv_generator.after_episode()    # post-processing after each episode
+            pbar.set_postfix(avg_attack_success_rate=attack_cnt/(i+1),avg_compute_time=time_cost/(i+1)) # benchmarking the attack success rate and computational time
+            break
+          
+      except KeyError as e:  # <--- この3行をループの末尾に追加
+        print(f"\nシナリオ {i} でKeyErrorが発生したためスキップします。エラー: {e}")
+        continue
 
     env.close()

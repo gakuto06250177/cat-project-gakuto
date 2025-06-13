@@ -118,10 +118,10 @@ class AdvGenerator():
         logger = logging.getLogger(__name__)    
         advgen.utils.init(args,logger)
 
-        self.model = VectorNet(args).to(0)
+        self.model = VectorNet(args).to('cpu')
         self.model.eval()
 
-        self.model.load_state_dict(torch.load('./advgen/pretrained/densetnt.bin'))
+        self.model.load_state_dict(torch.load('./advgen/pretrained/densetnt.bin', map_location=torch.device('cpu')))
 
         self.args = args
 
@@ -416,7 +416,7 @@ class AdvGenerator():
 
         batch_data = process_data(traffic_motion_feat,self.args)
         with torch.no_grad():
-            pred_trajectory, pred_score, _ = self.model(batch_data[0], 'cuda')
+            pred_trajectory, pred_score, _ = self.model(batch_data[0], 'cpu')
 
         # return traffic_motion_feat,pred_trajectory,trajs_AV
 
